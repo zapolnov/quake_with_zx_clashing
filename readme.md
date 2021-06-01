@@ -9,3 +9,8 @@ Run game and press:
 
 If you want to compile yourself, use CMake.
 Tested on Visual Studio 2019 and MinGW 8.10.
+
+Only Windows is currently supported.
+
+Dithering and clashing algorithm by the great Lissfox:
+https://github.com/FoxLib/Programs/blob/master/misc/image2scr/dither.cc
