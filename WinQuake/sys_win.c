@@ -270,25 +270,84 @@ void Sys_MakeCodeWriteable (unsigned long startaddr, unsigned long length)
 }
 
 
-#ifndef _M_IX86
+//#ifndef _M_IX86
+
+DWORD ceil_cw;
+DWORD single_cw;
+DWORD full_cw;
+DWORD cw;
+DWORD pushed_cw;
 
 void Sys_SetFPCW (void)
 {
+#ifndef __GNUC__
+    __asm {
+    fnstcw  [cw]
+    mov     eax, [cw]
+    and     ah, 0xF0
+    or      ah, 3       // round mode, 64-bit precision
+    mov     [full_cw], eax
+    and     ah, 0xF0
+    or      ah, 0x0C    // chop mode, single precision
+    mov     [single_cw], eax
+    and     ah, 0xF0
+    or      ah, 0x08    // ceil mode, single precision
+    mov     [ceil_cw], eax
+    }
+#endif
 }
 
 void Sys_PushFPCW_SetHigh (void)
 {
+#ifndef __GNUC__
+    __asm {
+    fnstcw  [pushed_cw]
+    fldcw   [full_cw]
+    }
+#endif
 }
 
 void Sys_PopFPCW (void)
 {
+#ifndef __GNUC__
+    __asm {
+    fldcw   [pushed_cw]
+    }
+#endif
 }
+
+void Sys_HighFPPrecision()
+{
+#ifndef __GNUC__
+    __asm {
+    fldcw   [full_cw]
+    }
+#endif
+}
+
+void Sys_LowFPPrecision()
+{
+#ifndef __GNUC__
+    __asm {
+    fldcw   [single_cw]
+    }
+#endif
+}
+
+DWORD fpenv[8];
 
 void MaskExceptions (void)
 {
+#ifndef __GNUC__
+	__asm {
+    fnstenv fpenv
+    or      byte ptr [fpenv], 0x3F
+    fldenv  fpenv
+	}
+#endif
 }
 
-#endif
+//#endif
 
 /*
 ================
@@ -558,7 +617,7 @@ char *Sys_ConsoleInput (void)
 	static int		len;
 	INPUT_RECORD	recs[1024];
 	int		count;
-	int		i, dummy;
+	int		i; DWORD dummy;
 	int		ch, numread, numevents;
 
 	if (!isDedicated)
@@ -688,7 +747,6 @@ char		*argv[MAX_NUM_ARGVS];
 static char	*empty_string = "";
 HWND		hwnd_dialog;
 
-
 int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
     MSG				msg;
@@ -702,6 +760,8 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     /* previous instances do not exist in Win32 */
     if (hPrevInstance)
         return 0;
+
+	//SetProcessDPIAware(TRUE);
 
 	global_hInstance = hInstance;
 	global_nCmdShow = nCmdShow;

@@ -1,0 +1,105 @@
+cmake_minimum_required(VERSION 3.8)
+project(WinQuake)
+
+include_directories(
+        "${CMAKE_CURRENT_SOURCE_DIR}/scitech/include"
+    )
+
+if(MSVC)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:LIBC.lib /SAFESEH:NO /SUBSYSTEM:WINDOWS")
+
+    add_definitions(
+            -D_CRT_SECURE_NO_WARNINGS=1
+            -D_CRT_NONSTDC_NO_DEPRECATE=1
+            /wd4018
+            /wd4101
+            /wd4244
+            /wd4305
+        )
+endif()
+
+add_executable(WinQuake
+        cd_win.c
+        chase.c
+        cl_demo.c
+        cl_input.c
+        cl_main.c
+        cl_parse.c
+        cl_tent.c
+        cmd.c
+        common.c
+        conproc.c
+        console.c
+        crc.c
+        cvar.c
+        d_edge.c
+        d_fill.c
+        d_init.c
+        d_modech.c
+        d_part.c
+        d_polyse.c
+        d_scan.c
+        d_sky.c
+        d_sprite.c
+        d_surf.c
+        d_vars.c
+        d_zpoint.c
+        dither.cpp
+        draw.c
+        host.c
+        host_cmd.c
+        in_win.c
+        keys.c
+        mathlib.c
+        menu.c
+        model.c
+        net_dgrm.c
+        net_loop.c
+        net_main.c
+        net_vcr.c
+        net_win.c
+        net_wins.c
+        net_wipx.c
+        nonintel.c
+        pr_cmds.c
+        pr_edict.c
+        pr_exec.c
+        r_aclip.c
+        r_alias.c
+        r_bsp.c
+        r_draw.c
+        r_edge.c
+        r_efrag.c
+        r_light.c
+        r_main.c
+        r_misc.c
+        r_part.c
+        r_sky.c
+        r_sprite.c
+        r_surf.c
+        r_vars.c
+        sbar.c
+        screen.c
+        snd_dma.c
+        snd_mem.c
+        snd_mix.c
+        snd_win.c
+        sv_main.c
+        sv_move.c
+        sv_phys.c
+        sv_user.c
+        sys_win.c
+        vid_win.c
+        view.c
+        wad.c
+        world.c
+        zone.c
+    )
+
+target_link_libraries(WinQuake
+        "${CMAKE_CURRENT_SOURCE_DIR}/scitech/lib/win32/vc/mgllt.lib"
+        dxguid
+        dinput8
+        ws2_32
+        winmm
+    )

@@ -66,7 +66,7 @@ LPDIRECTSOUNDBUFFER pDSBuf, pDSPBuf;
 
 HINSTANCE hInstDS;
 
-qboolean SNDDMA_InitDirect (void);
+/*qboolean*/sndinitstat SNDDMA_InitDirect (void);
 qboolean SNDDMA_InitWav (void);
 
 
@@ -554,7 +554,7 @@ Returns false if nothing is found.
 ==================
 */
 
-int SNDDMA_Init(void)
+qboolean/*int*/ SNDDMA_Init(void)
 {
 	sndinitstat	stat;
 

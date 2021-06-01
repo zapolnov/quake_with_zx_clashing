@@ -29,7 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 qboolean	dibonly;
 
-extern int		Minimized;
+extern /*int*/qboolean		Minimized;
 
 HWND		mainwindow;
 
@@ -645,12 +645,12 @@ void VID_InitMGLDIB (HINSTANCE hInstance)
 	MGL_initWindowed("");
 
 	modelist[0].type = MS_WINDOWED;
-	modelist[0].width = 320;
-	modelist[0].height = 240;
-	strcpy (modelist[0].modedesc, "320x240");
+	modelist[0].width = 256*2;//320;
+	modelist[0].height = 192*2;//240;
+	strcpy (modelist[0].modedesc, "256x192");//"320x240");
 	modelist[0].mode13 = 0;
 	modelist[0].modenum = MODE_WINDOWED;
-	modelist[0].stretched = 0;
+	modelist[0].stretched = 1;
 	modelist[0].dib = 1;
 	modelist[0].fullscreen = 0;
 	modelist[0].halfscreen = 0;
@@ -707,6 +707,7 @@ void VID_InitMGLDIB (HINSTANCE hInstance)
 VID_InitFullDIB
 =================
 */
+/*
 void VID_InitFullDIB (HINSTANCE hInstance)
 {
 	DEVMODE	devmode;
@@ -991,6 +992,7 @@ void VID_InitFullDIB (HINSTANCE hInstance)
 	else
 		Con_SafePrintf ("No fullscreen DIB modes found\n");
 }
+*/
 
 
 /*
@@ -1251,12 +1253,12 @@ qboolean VID_SetWindowedMode (int modenum)
 
 	WindowRect.top = WindowRect.left = 0;
 
-	WindowRect.right = modelist[modenum].width;
-	WindowRect.bottom = modelist[modenum].height;
-	stretched = modelist[modenum].stretched;
+	WindowRect.right = 256;//modelist[modenum].width;
+	WindowRect.bottom = 192;//modelist[modenum].height;
+	stretched = 0;//modelist[modenum].stretched;
 
-	DIBWidth = modelist[modenum].width;
-	DIBHeight = modelist[modenum].height;
+	DIBWidth = 256*2;//modelist[modenum].width;
+	DIBHeight = 192*2;//modelist[modenum].height;
 
 	if (stretched)
 	{
@@ -1279,7 +1281,8 @@ qboolean VID_SetWindowedMode (int modenum)
 			 "WinQuake",
 			 "WinQuake",
 			 WindowStyle,
-			 0, 0,
+			 WindowRect.left + (GetSystemMetrics(SM_CXSCREEN) - (WindowRect.right - WindowRect.left)) / 2,
+			 WindowRect.top + (GetSystemMetrics(SM_CYSCREEN) - (WindowRect.bottom - WindowRect.top)) / 2,
 			 WindowRect.right - WindowRect.left,
 			 WindowRect.bottom - WindowRect.top,
 			 NULL,
@@ -1303,8 +1306,9 @@ qboolean VID_SetWindowedMode (int modenum)
 
 	if (!SetWindowPos (mainwindow,
 					   NULL,
-					   0, 0,
-					   WindowRect.right - WindowRect.left,
+						WindowRect.left + (GetSystemMetrics(SM_CXSCREEN) - (WindowRect.right - WindowRect.left)) / 2,
+						WindowRect.top + (GetSystemMetrics(SM_CYSCREEN) - (WindowRect.bottom - WindowRect.top)) / 2,
+						WindowRect.right - WindowRect.left,
 					   WindowRect.bottom - WindowRect.top,
 					   SWP_NOCOPYBITS | SWP_NOZORDER |
 						SWP_HIDEWINDOW))
@@ -1314,6 +1318,9 @@ qboolean VID_SetWindowedMode (int modenum)
 
 	if (hide_window)
 		return true;
+
+	vid_window_x.value = WindowRect.left + (GetSystemMetrics(SM_CXSCREEN) - (WindowRect.right - WindowRect.left)) / 2;
+	vid_window_y.value = WindowRect.top + (GetSystemMetrics(SM_CYSCREEN) - (WindowRect.bottom - WindowRect.top)) / 2;
 
 // position and show the DIB window
 	VID_CheckWindowXY ();
@@ -2099,6 +2106,7 @@ void	VID_Init (unsigned char *palette)
 
 // if there are no non-windowed modes, or only windowed and mode 0x13, then use
 // fullscreen DIBs as well
+/*
 	if (((nummodes == basenummodes) ||
 		 ((nummodes == (basenummodes + 1)) && is_mode0x13)) &&
 		!COM_CheckParm ("-nofulldib"))
@@ -2106,6 +2114,7 @@ void	VID_Init (unsigned char *palette)
 	{
 		VID_InitFullDIB (global_hInstance);
 	}
+    */
 
 	vid.maxwarpwidth = WARP_WIDTH;
 	vid.maxwarpheight = WARP_HEIGHT;
@@ -2141,7 +2150,7 @@ void	VID_Init (unsigned char *palette)
 			*ptmp = bestmatch;
 	}
 
-	if (COM_CheckParm("-startwindowed"))
+	//if (COM_CheckParm("-startwindowed"))
 	{
 		startwindowed = 1;
 		vid_default = windowed_default;
@@ -2209,6 +2218,81 @@ void	VID_Shutdown (void)
 	}
 }
 
+static HDC hMemDC;
+static HBITMAP hBitmap;
+
+int scale = 1;
+int zxmode = 0;
+
+void UpdateWindowSize(HWND hWnd)
+{
+	RECT WindowRect = { 0, 0, 256 * scale, 192 * scale };
+
+	WindowStyle = WS_OVERLAPPED | WS_BORDER | WS_CAPTION | WS_SYSMENU |
+		WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CLIPSIBLINGS |
+		WS_CLIPCHILDREN;
+	ExWindowStyle = 0;
+	AdjustWindowRectEx(&WindowRect, WindowStyle, FALSE, 0);
+
+	int x = WindowRect.left + (GetSystemMetrics(SM_CXSCREEN) - (WindowRect.right - WindowRect.left)) / 2;
+	int y = WindowRect.top + (GetSystemMetrics(SM_CYSCREEN) - (WindowRect.bottom - WindowRect.top)) / 2;
+
+	SetWindowPos(hWnd, NULL, x, y,
+		WindowRect.right - WindowRect.left, WindowRect.bottom - WindowRect.top,
+		SWP_NOCOPYBITS | SWP_NOREDRAW | SWP_NOZORDER);
+}
+
+void Dither(unsigned char* p, int color);
+
+void DrawImage(HDC hDC, unsigned char* p)
+{
+	BITMAPINFO bmi;
+	ZeroMemory(&bmi, sizeof(BITMAPINFO));
+	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmi.bmiHeader.biBitCount = 32;
+	bmi.bmiHeader.biHeight = 192;
+	bmi.bmiHeader.biWidth = 256;
+	bmi.bmiHeader.biPlanes = 1;
+
+	switch (zxmode) {
+		case 0:
+			break;
+
+		case 1:
+			Dither(p, 0);
+			break;
+
+		case 2:
+			Dither(p, 1);
+			break;
+	}
+
+	if (hMemDC == NULL)
+		hMemDC = CreateCompatibleDC(hDC);
+
+	if (hBitmap == NULL) {
+		VOID* ppvbits = NULL;
+		hBitmap = CreateDIBSection(hMemDC, &bmi, DIB_RGB_COLORS,
+			ppvbits, NULL, 0);
+	}
+
+	SetDIBits(hDC, hBitmap, 0, bmi.bmiHeader.biHeight, p, &bmi, DIB_RGB_COLORS);
+
+	HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, hBitmap);
+
+	if (scale == 1)
+		BitBlt(hDC, 0, 0, bmi.bmiHeader.biWidth, bmi.bmiHeader.biHeight, hMemDC, 0, 0, SRCCOPY);
+	else {
+		StretchBlt(hDC, 0, 0, bmi.bmiHeader.biWidth * scale, bmi.bmiHeader.biHeight * scale,
+			hMemDC, 0, 0, bmi.bmiHeader.biWidth, bmi.bmiHeader.biHeight, SRCCOPY);
+	}
+
+	SelectObject(hMemDC, hOldBitmap);
+
+	//DeleteObject(hBitmap);
+
+	//DeleteDC(hMemDC);
+}
 
 /*
 ================
@@ -2229,7 +2313,7 @@ void FlipScreen(vrect_t *rects)
 			{
 				while (rects)
 				{
-					if (vid_stretched)
+					//if (vid_stretched)
 					{
 						MGL_stretchBltCoord(mgldc, memdc,
 									rects->x,
@@ -2241,14 +2325,14 @@ void FlipScreen(vrect_t *rects)
 									(rects->x + rects->width) << 1,
 									(rects->y + rects->height) << 1);
 					}
-					else
+					/*else
 					{
 						MGL_bitBltCoord(mgldc, memdc,
 									rects->x, rects->y,
 									(rects->x + rects->width),
 									(rects->y + rects->height),
 									rects->x, rects->y, MGL_REPLACE_MODE);
-					}
+					}*/
 
 					rects = rects->pnext;
 				}
@@ -2274,16 +2358,25 @@ void FlipScreen(vrect_t *rects)
 		{
 			MGL_setWinDC(windc,hdcScreen);
 
+			/*
 			while (rects)
 			{
-				if (vid_stretched)
+				if (0)//vid_stretched)
 				{
+					int left = rects->x;
+					int top = rects->y;
+					int right = rects->x + rects->width;
+					int bottom = rects->y + rects->height;
+					int dstLeft = rects->x >> 1;
+					int dstTop = rects->y >> 1;
+					int dstRight = (rects->x + rects->width) >> 1;
+					int dstBottom = (rects->y + rects->height) >> 1;
 					MGL_stretchBltCoord(windc,dibdc,
-						rects->x, rects->y,
-						rects->x + rects->width, rects->y + rects->height,
-						rects->x << 1, rects->y << 1,
-						(rects->x + rects->width) << 1,
-						(rects->y + rects->height) << 1);
+						left, top,
+						right, bottom,
+						dstLeft, dstTop,
+						dstRight, dstBottom
+						);
 				}
 				else
 				{
@@ -2295,6 +2388,43 @@ void FlipScreen(vrect_t *rects)
 
 				rects = rects->pnext;
 			}
+			*/
+
+
+			VID_LockBuffer();
+
+			static unsigned char buf[256 * 192 * 4];
+
+			pixel_t* src = vid.buffer;
+			for (int y = 0; y < 192; y++) {
+				pixel_t* p1 = src;
+				pixel_t* p2 = src + vid.rowbytes;
+				for (int x = 0; x < 256; x++) {
+					const unsigned char* c1 = &vid_curpal[p1[0]*3];
+					const unsigned char* c2 = &vid_curpal[p1[1]*3];
+					const unsigned char* c3 = &vid_curpal[p2[0]*3];
+					const unsigned char* c4 = &vid_curpal[p2[1]*3];
+
+					int r = (c1[0] + c2[0] + c3[0] + c4[0]) / 4;
+					int g = (c1[1] + c2[1] + c3[1] + c4[1]) / 4;
+					int b = (c1[2] + c2[2] + c3[2] + c4[2]) / 4;
+
+					unsigned char* p = &buf[((191 - y) * 256 + x) * 4];
+					p[0] = b;
+					p[1] = g;
+					p[2] = r;
+					p[3] = 0xff;
+					//SetPixel(hdcScreen, x, y, RGB(r, g, b));
+
+					p1 += 2;
+					p2 += 2;
+				}
+				src += vid.rowbytes * 2;
+			}
+
+			DrawImage(hdcScreen, buf);
+
+			VID_UnlockBuffer();
 		}
 
 		ReleaseDC(mainwindow, hdcScreen);
@@ -2926,6 +3056,13 @@ LONG WINAPI MainWndProc (
 			break;
 
 		case WM_KEYDOWN:
+			switch (wParam) {
+			case VK_NEXT: if (scale > 1) scale--; UpdateWindowSize(hWnd); return 0;
+			case VK_PRIOR: if (scale < 5) scale++; UpdateWindowSize(hWnd); return 0;
+			case VK_F3: zxmode = 0; return 0;
+			case VK_F4: zxmode = 1; return 0;
+			case VK_F5: zxmode = 2; return 0;
+			}
 		case WM_SYSKEYDOWN:
 			if (!in_mode_set)
 				Key_Event (MapKey(lParam), true);
